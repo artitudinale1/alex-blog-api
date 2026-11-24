@@ -1,0 +1,25 @@
+# Render Blueprint for the public read-only GraphQL API.
+# Applying this file creates a Free web service. It does not create paid compute.
+# Free instances spin down after 15 minutes without inbound traffic.
+# Set MONGODB_URI in the Render dashboard when prompted. Never put it in this file.
+services:
+  - type: web
+    name: alex-blog-api
+    runtime: node
+    plan: free
+    region: frankfurt
+    branch: main
+    healthCheckPath: /health
+    buildCommand: npm ci --include=dev && npm run build
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NODE_VERSION
+        value: "22"
+      - key: MONGODB_DB
+        value: alex_blog
+      - key: CORS_ORIGINS
+        value: https://www.alexgarulli.org.uk,https://alexgarulli.org.uk,http://localhost:3000
+      - key: MONGODB_URI
+        sync: false

@@ -9,8 +9,8 @@ Four initial categories: **Code, Japanese, Cats, Cooking**. Articles may mix Eng
 ## Architecture
 - Existing frontend: Next.js + TypeScript on Vercel; new routes `/blog` and `/blog/[slug]`, nav item Blog, link back to CV.
 - Independent backend: Node.js 22 + TypeScript + GraphQL Yoga, endpoint `/graphql`.
-- Persistence: MongoDB Atlas, `posts` collection; no database account or credentials created yet.
-- Deploy backend separately from Vercel frontend; hosting provider TBD, chosen before first public release.
+- Persistence: MongoDB Atlas M0 cluster `alex-blog`, database `alex_blog`, collection `posts`. Credentials stay outside the repository.
+- Deploy backend separately from the Vercel frontend on a Render Free web service (Frankfurt), defined in `render.yaml`. The service is not created until the blueprint is applied. See [deployment](DEPLOYMENT.md).
 - Contentful continues to serve the existing portfolio; MongoDB only serves the blog.
 
 ## Data model (phase 1)
@@ -23,9 +23,9 @@ Four initial categories: **Code, Japanese, Cats, Cooking**. Articles may mix Eng
 No mutation in phase 1. Seed script inserts two placeholder posts idempotently. GraphQL endpoint CORS allow-list configured via environment variable. Secrets must remain server-side.
 
 ## Milestones / acceptance
-**1. Backend local:** repository, documentation, typed GraphQL API, MongoDB connection, seed script, tests and GitHub Actions. Verify a query returns two demo posts from a configured database. **Blocked only on database setup.**
+**1. Backend local:** repository, documentation, typed GraphQL API, MongoDB connection, seed script, tests and GitHub Actions. A query returns two demo posts from `alex_blog`.
 
-**2. Backend live:** deploy independent API, restrict CORS and database access, verify GraphQL responses, avoid exposing credentials. Hosting choice TBD.
+**2. Backend live:** Render Free service, `GET /health`, CORS allow-list, and a public `/graphql` response, with credentials kept in the host dashboard. Blueprint is in the repo. Still to do, with approval: apply it, set `MONGODB_URI`, and choose Atlas network access. Free-tier sleep is documented in [deployment](DEPLOYMENT.md).
 
 **3. Frontend live:** preserve portfolio; add Blog nav, listing, detail routes, category filters, back-to-CV navigation, Japanese fonts and furigana. Verify mobile and desktop, SEO metadata, and safe Markdown rendering. Blog URL on existing domain.
 
@@ -39,4 +39,4 @@ No mutation in phase 1. Seed script inserts two placeholder posts idempotently. 
 Admin editor, OAuth, comments, Python, notifications, full-text search, image uploads, public mutations, migration of existing Contentful content.
 
 ## Risks / future decisions
-Hosting free-tier availability, MongoDB Atlas account/network access, secret management, authentication strategy, comment privacy and abuse, rich Markdown and ruby rendering, and caching/revalidation on Next.js. Document decisions rather than prematurely implementing.
+Render Free spin-down (about one minute to wake) versus a later $7 always-on instance before Next.js server-renders `/blog`. Atlas M0 has no private link, and Render Free has no static outbound IP, so network access is either a password-protected `0.0.0.0/0` entry or a paid static egress address. Secret management stays in the Render dashboard. Authentication strategy, comment privacy and abuse, rich Markdown and ruby rendering, and caching/revalidation on Next.js remain open. Document decisions rather than prematurely implementing.
