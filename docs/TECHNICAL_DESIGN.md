@@ -14,7 +14,7 @@ Four initial categories: **Code, Japanese, Cats, Cooking**. Articles may mix Eng
 - Contentful continues to serve the existing portfolio; MongoDB only serves the blog.
 
 ## Data model (phase 1)
-`Post`: `_id`, `title`, unique `slug`, `excerpt`, `contentMarkdown`, `category` enum, `tags`, `status` (`draft`/`published`), `publishedAt` nullable Date. Indexes: unique slug; status/category/date. Public GraphQL resolvers return only published posts whose date is not in the future. Results ordered newest first, paginated and capped at 50. The public `Post` type exposes ISO dates and never exposes internal status.
+`Post`: `_id`, `title`, unique `slug`, `excerpt`, `contentMarkdown`, `category` enum, `tags`, `status` (`draft`/`published`), `publishedAt` nullable Date, optional `coverImageUrl`. Indexes: unique slug; status/category/date. Public GraphQL resolvers return only published posts whose date is not in the future. Results ordered newest first, paginated and capped at 50. The public `Post` type exposes ISO dates and never exposes internal status. A missing cover is `null`.
 
 ## API contract (phase 1)
 `posts(category: Category, limit: Int = 20, offset: Int = 0): [Post!]!`
@@ -30,11 +30,16 @@ Authenticated operations, executed only with a valid editor token:
 - `editorPosts(status: PostStatus, limit: Int = 20, offset: Int = 0): [EditorPost!]!`
 - `editorPost(id: ID!): EditorPost`
 - `createPost(input: PostInput!): EditorPost!` inserts a draft with `publishedAt: null`
-- `updatePost(id: ID!, input: PostInput!): EditorPost!` changes title, slug, excerpt, Markdown, category, and tags. It does not change `_id`, `status`, or `publishedAt`. Omitting `tags` keeps the current tags.
+- `updatePost(id: ID!, input: PostInput!): EditorPost!` changes title, slug, excerpt, Markdown, category, tags, and the optional cover URL. It does not change `_id`, `status`, or `publishedAt`. Omitting `tags` keeps the current tags. Omitting `coverImageUrl` keeps the current cover; `null` clears it.
 - `publishPost(id: ID!): EditorPost!` sets `published`. The first publish sets `publishedAt` to the current time. A later publish keeps the original timestamp.
 - `unpublishPost(id: ID!): EditorPost!` sets `draft` and leaves `publishedAt` and the body untouched, so the public filters hide it.
 
 `EditorPost` adds `status` (`DRAFT` or `PUBLISHED`) and a nullable `publishedAt`. `PostInput` requires title (max 160), slug (lowercase hyphenated, max 80, unique), excerpt (max 300), Markdown (max 100000), and category. Tags are optional, deduplicated, and capped at 20. Invalid input returns `BAD_USER_INPUT`. A duplicate slug returns that same code and does not replace the other post.
+
+### Cover image
+`coverImageUrl` is optional on public `Post`, `EditorPost`, and `PostInput`. Documents written before the field existed stay unchanged, and every query returns `null` when it is absent. No database migration runs.
+
+The value must be an `https` URL of at most 2048 characters, with no username or password. A Cloudinary delivery URL is accepted when the host is `res.cloudinary.com` and the path contains `/image/upload/`, `/image/fetch/`, `/image/private/`, or `/image/authenticated/`. Any other URL must use `https` and end in `avif`, `gif`, `jpg`, `jpeg`, `png`, `svg`, or `webp`. `http`, `data`, `javascript`, and other protocols are rejected. This API does not receive file uploads. The Next.js app uploads to Cloudinary and sends back the delivery URL.
 
 ### Authentication
 GitHub OAuth runs only in the Next.js app. This API never redirects to GitHub and never accepts a GitHub access token. The browser must not send `EDITOR_AUTH_SECRET`, and it must not call these mutations itself.
@@ -68,7 +73,7 @@ const token = `${data}.${signature}`;
 
 **3. Frontend live:** preserve portfolio; add Blog nav, listing, detail routes, category filters, back-to-CV navigation, Japanese fonts and furigana. Verify mobile and desktop, SEO metadata, and safe Markdown rendering. Blog URL on existing domain.
 
-**4. Editor:** API mutations and draft queries are protected by the server-signed token above. Still to build in the portfolio: GitHub sign-in and `/admin/blog` with Markdown editing. The API does not render Markdown and does not upload images.
+**4. Editor:** API mutations and draft queries are protected by the server-signed token above. Posts may store an optional cover URL. Still to build in the portfolio: GitHub sign-in, `/admin/blog` with Markdown editing, and the Cloudinary upload that produces `coverImageUrl`. The API does not render Markdown and does not upload images.
 
 **5. Comments:** Google/GitHub sign-in, backend verified identity, comments initially `pending`, moderation dashboard, only `approved` visible; spam/rate limiting and privacy notice before enabling.
 
