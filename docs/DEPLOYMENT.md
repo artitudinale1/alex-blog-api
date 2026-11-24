@@ -29,6 +29,8 @@ Region is **Frankfurt**, the Render region closest to the UK site. A service’s
 | GraphQL | `POST /graphql` (GraphiQL is off when `NODE_ENV=production`) |
 | Database | `MONGODB_URI` from the Render dashboard, database name `alex_blog` |
 | CORS | `https://www.alexgarulli.org.uk`, `https://alexgarulli.org.uk`, `http://localhost:3000` |
+| Editor secret | `EDITOR_AUTH_SECRET` in the Render dashboard and on the Next.js server. Public reads do not need it. |
+| Editor allow-list | `ADMIN_GITHUB_IDS` in the Render dashboard: numeric GitHub ids, not logins. |
 
 `NODE_ENV=production` is set for the running service. The build still installs devDependencies, because `tsc` is one of them. `--include=dev` is what makes that succeed.
 

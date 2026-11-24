@@ -19,7 +19,11 @@ describe('post resolvers', () => {
     const posts = await postResolvers(collection).Query.posts({}, { category: 'JAPANESE' });
     expect(posts[0].title).toBe('猫');
     expect(posts[0].publishedAt).toBe('2026-11-23T12:00:00.000Z');
-    expect(find).toHaveBeenCalledWith(expect.objectContaining({ status: 'published', category: 'JAPANESE' }));
+    expect(find).toHaveBeenCalledWith({
+      status: 'published',
+      publishedAt: { $lte: expect.any(Date), $ne: null },
+      category: 'JAPANESE',
+    });
   });
   it('rejects unbounded page sizes', async () => {
     const { collection } = mockCollection();
@@ -28,6 +32,10 @@ describe('post resolvers', () => {
   it('looks up published slugs', async () => {
     const { collection, findOne } = mockCollection();
     await postResolvers(collection).Query.post({}, { slug: 'neko' });
-    expect(findOne).toHaveBeenCalledWith(expect.objectContaining({ slug: 'neko', status: 'published' }));
+    expect(findOne).toHaveBeenCalledWith({
+      slug: 'neko',
+      status: 'published',
+      publishedAt: { $lte: expect.any(Date), $ne: null },
+    });
   });
 });
