@@ -1,7 +1,7 @@
-# Render Blueprint for the public read-only GraphQL API.
+# Render Blueprint for the GraphQL API.
 # Applying this file creates a Free web service. It does not create paid compute.
 # Free instances spin down after 15 minutes without inbound traffic.
-# Set MONGODB_URI in the Render dashboard when prompted. Never put it in this file.
+# Set MONGODB_URI, EDITOR_AUTH_SECRET, and ADMIN_GITHUB_IDS in the dashboard. Never put them in this file.
 services:
   - type: web
     name: alex-blog-api
@@ -22,4 +22,8 @@ services:
       - key: CORS_ORIGINS
         value: https://www.alexgarulli.org.uk,https://alexgarulli.org.uk,http://localhost:3000
       - key: MONGODB_URI
+        sync: false
+      - key: EDITOR_AUTH_SECRET
+        sync: false
+      - key: ADMIN_GITHUB_IDS
         sync: false

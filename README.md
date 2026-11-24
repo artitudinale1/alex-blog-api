@@ -2,7 +2,7 @@
 
 Independent Node.js + TypeScript + GraphQL Yoga + MongoDB backend for the blog section of [alexgarulli.org.uk](https://www.alexgarulli.org.uk/).
 
-**Status:** Phase 1 is implemented locally against MongoDB Atlas (`alex-blog` / `alex_blog`). Public hosting is configured for a Render Free web service and is not live until that blueprint is applied. See [deployment](docs/DEPLOYMENT.md).
+**Status:** Public read API is live. Phase 2 adds authenticated editor mutations for a future `/admin/blog` page. Set `EDITOR_AUTH_SECRET` and `ADMIN_GITHUB_IDS` before that page can save. See [technical design](docs/TECHNICAL_DESIGN.md).
 
 ## Requirements
 
@@ -33,11 +33,11 @@ Or `post(slug: "japanese-cats-and-katakana") { title contentMarkdown }`.
 
 ## Scope
 
-Phase 1 is intentionally **read-only**. Drafts never appear in public queries; no public mutations or admin endpoints exist. The existing portfolio remains unchanged. See [technical design](docs/TECHNICAL_DESIGN.md) and [decisions](docs/DECISIONS.md).
+Anonymous clients can only read published posts. `posts` and `post` never return drafts, and the public `Post` type has no status field. Drafts, `createPost`, `updatePost`, `publishPost`, and `unpublishPost` require a short-lived token signed by the Next.js server after GitHub sign-in. This API does not run a second OAuth flow. See [technical design](docs/TECHNICAL_DESIGN.md) and [decisions](docs/DECISIONS.md).
 
 ## Deployment
 
-Render configuration is in `render.yaml`. It selects the Free plan, Frankfurt, `npm start`, and `GET /health`. `MONGODB_URI` is entered in the Render dashboard and is not part of the repository. Applying the blueprint, and any change to Atlas network access, waits for approval. Instructions and the network-access tradeoff are in [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
+Render configuration is in `render.yaml`. `MONGODB_URI`, `EDITOR_AUTH_SECRET`, and `ADMIN_GITHUB_IDS` are entered in the Render dashboard and are not part of the repository. The editor secret must be the same value on the Next.js server. Public reads keep working when the editor variables are absent. Instructions are in [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
 
 ## Security
 
