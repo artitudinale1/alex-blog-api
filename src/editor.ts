@@ -1,7 +1,8 @@
 import { GraphQLError } from 'graphql';
 import { ObjectId, type Collection, type Filter, type WithId } from 'mongodb';
 import type { AppContext } from './editor-auth.js';
-import type { Category, PostDocument } from './posts.js';
+import { parseCoverImageUrl } from './cover-image.js';
+import { coverImageValue, type Category, type PostDocument } from './posts.js';
 
 const OBJECT_ID = /^[a-f0-9]{24}$/i;
 
@@ -12,6 +13,7 @@ export interface PostInput {
   contentMarkdown: string;
   category: Category;
   tags?: string[] | null;
+  coverImageUrl?: string | null;
 }
 
 interface ValidatedFields {
@@ -21,6 +23,7 @@ interface ValidatedFields {
   contentMarkdown: string;
   category: Category;
   tags?: string[];
+  coverImageUrl?: string | null;
 }
 
 const CLIENT_CODES = new Set(['UNAUTHENTICATED', 'FORBIDDEN', 'BAD_USER_INPUT', 'NOT_FOUND']);
@@ -82,6 +85,8 @@ export function validatePostInput(input: PostInput | undefined, mode: 'create' |
     throw badInput('category is invalid');
   }
   const fields: ValidatedFields = { title, slug, excerpt, contentMarkdown, category };
+  const coverImageUrl = parseCoverImageUrl(input?.coverImageUrl);
+  if (coverImageUrl !== undefined) fields.coverImageUrl = coverImageUrl;
   if (input?.tags == null) {
     if (mode === 'create') fields.tags = [];
     return fields;
@@ -108,6 +113,7 @@ function toEditorPost(doc: WithId<PostDocument>) {
     tags: doc.tags,
     status: doc.status === 'published' ? 'PUBLISHED' : 'DRAFT',
     publishedAt: doc.publishedAt ? doc.publishedAt.toISOString() : null,
+    coverImageUrl: coverImageValue(doc.coverImageUrl),
   };
 }
 
@@ -167,6 +173,7 @@ export function editorResolvers(collection: Collection<PostDocument>) {
           tags: fields.tags ?? [],
           status: 'draft',
           publishedAt: null,
+          ...(fields.coverImageUrl ? { coverImageUrl: fields.coverImageUrl } : {}),
         };
         try {
           await collection.insertOne(doc);
@@ -187,8 +194,11 @@ export function editorResolvers(collection: Collection<PostDocument>) {
           category: fields.category,
         };
         if (fields.tags !== undefined) $set.tags = fields.tags;
+        const update: { $set: Partial<PostDocument>; $unset?: { coverImageUrl: '' } } = { $set };
+        if (fields.coverImageUrl === null) update.$unset = { coverImageUrl: '' };
+        else if (fields.coverImageUrl) $set.coverImageUrl = fields.coverImageUrl;
         try {
-          const updated = await collection.findOneAndUpdate({ _id }, { $set }, { returnDocument: 'after' });
+          const updated = await collection.findOneAndUpdate({ _id }, update, { returnDocument: 'after' });
           if (!updated) throw notFound();
           return toEditorPost(updated);
         } catch (error) {

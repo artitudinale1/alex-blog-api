@@ -10,6 +10,10 @@ export interface PostDocument extends Document {
   tags: string[];
   status: 'draft' | 'published';
   publishedAt: Date | null;
+  coverImageUrl?: string | null;
+}
+export function coverImageValue(value: string | null | undefined): string | null {
+  return value || null;
 }
 export function publicPost(doc: WithId<PostDocument>) {
   return {
@@ -17,6 +21,7 @@ export function publicPost(doc: WithId<PostDocument>) {
     excerpt: doc.excerpt, contentMarkdown: doc.contentMarkdown,
     category: doc.category, tags: doc.tags,
     publishedAt: doc.publishedAt!.toISOString(),
+    coverImageUrl: coverImageValue(doc.coverImageUrl),
   };
 }
 export function postResolvers(collection: Collection<PostDocument>) {

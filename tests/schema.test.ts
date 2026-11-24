@@ -9,8 +9,9 @@ describe('public GraphQL contract', () => {
     const post = schema.getType('Post');
     expect(post).toBeInstanceOf(GraphQLObjectType);
     expect(Object.keys((post as GraphQLObjectType).getFields()).sort()).toEqual([
-      'category', 'contentMarkdown', 'excerpt', 'id', 'publishedAt', 'slug', 'tags', 'title',
+      'category', 'contentMarkdown', 'coverImageUrl', 'excerpt', 'id', 'publishedAt', 'slug', 'tags', 'title',
     ]);
+    expect((post as GraphQLObjectType).getFields().coverImageUrl.type.toString()).toBe('String');
     expect(Object.keys(schema.getMutationType()?.getFields() ?? {}).sort()).toEqual([
       'createPost', 'publishPost', 'unpublishPost', 'updatePost',
     ]);

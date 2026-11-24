@@ -10,6 +10,7 @@ export const typeDefs = /* GraphQL */ `
     category: Category!
     tags: [String!]!
     publishedAt: String!
+    coverImageUrl: String
   }
   type EditorPost {
     id: ID!
@@ -21,6 +22,7 @@ export const typeDefs = /* GraphQL */ `
     tags: [String!]!
     status: PostStatus!
     publishedAt: String
+    coverImageUrl: String
   }
   input PostInput {
     title: String!
@@ -29,6 +31,7 @@ export const typeDefs = /* GraphQL */ `
     contentMarkdown: String!
     category: Category!
     tags: [String!]
+    coverImageUrl: String
   }
   type Query {
     posts(category: Category, limit: Int = 20, offset: Int = 0): [Post!]!
