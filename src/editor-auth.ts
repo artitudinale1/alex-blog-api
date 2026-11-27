@@ -15,9 +15,14 @@ export interface EditorAuthConfig {
 
 export type AuthFailure = 'invalid' | 'forbidden' | 'unconfigured';
 
-export interface AppContext {
+export interface EditorAuthState {
   editor: EditorIdentity | null;
   authFailure: AuthFailure | null;
+}
+
+export interface AppContext extends EditorAuthState {
+  agent: boolean;
+  agentFailure: AuthFailure | null;
 }
 
 export function readEditorAuthConfig(env: NodeJS.ProcessEnv): EditorAuthConfig {
@@ -68,7 +73,7 @@ export function verifyEditorToken(secret: string, token: string, now = Date.now(
   }
 }
 
-export function resolveAuthorization(authorization: string | null, config: EditorAuthConfig, now = Date.now()): AppContext {
+export function resolveAuthorization(authorization: string | null, config: EditorAuthConfig, now = Date.now()): EditorAuthState {
   if (!authorization) return { editor: null, authFailure: null };
   if (!config.secret || config.adminGithubIds.size === 0) return { editor: null, authFailure: 'unconfigured' };
   const match = /^Bearer\s+(\S+)$/i.exec(authorization.trim());

@@ -66,6 +66,31 @@ export function requireEditor(ctx: AppContext | undefined): NonNullable<AppConte
   throw new GraphQLError('Authentication required', { extensions: { code: 'UNAUTHENTICATED' } });
 }
 
+function agentCredentialError(ctx: AppContext | undefined): GraphQLError | null {
+  if (ctx?.agentFailure === 'invalid') return new GraphQLError('Invalid agent credentials', { extensions: { code: 'UNAUTHENTICATED' } });
+  if (ctx?.agentFailure === 'unconfigured') return new GraphQLError('Agent authentication is not configured', { extensions: { code: 'UNAUTHENTICATED' } });
+  return null;
+}
+
+function requireWriter(ctx: AppContext | undefined): 'editor' | 'agent' {
+  if (ctx?.editor) return 'editor';
+  if (ctx?.agent) return 'agent';
+  if (ctx?.authFailure) requireEditor(ctx);
+  const agentError = agentCredentialError(ctx);
+  if (agentError) throw agentError;
+  requireEditor(ctx);
+  return 'editor';
+}
+
+function requireEditorOnly(ctx: AppContext | undefined): void {
+  if (ctx?.editor) return;
+  if (ctx?.agent) throw new GraphQLError('Agents cannot publish or unpublish', { extensions: { code: 'FORBIDDEN' } });
+  if (ctx?.authFailure) requireEditor(ctx);
+  const agentError = agentCredentialError(ctx);
+  if (agentError) throw agentError;
+  requireEditor(ctx);
+}
+
 function requireText(value: unknown, label: string, max: number): string {
   if (typeof value !== 'string') throw badInput(`${label} is required`);
   const trimmed = value.trim();
@@ -145,7 +170,7 @@ export function editorResolvers(collection: Collection<PostDocument>) {
         args: { limit?: number; offset?: number; status?: 'DRAFT' | 'PUBLISHED' },
         ctx?: AppContext,
       ) => {
-        requireEditor(ctx);
+        requireWriter(ctx);
         const { limit, offset } = page(args);
         const filter: Filter<PostDocument> = {};
         if (args.status) filter.status = args.status === 'PUBLISHED' ? 'published' : 'draft';
@@ -153,7 +178,7 @@ export function editorResolvers(collection: Collection<PostDocument>) {
         return docs.map(toEditorPost);
       },
       editorPost: async (_: unknown, args: { id: string }, ctx?: AppContext) => {
-        requireEditor(ctx);
+        requireWriter(ctx);
         if (!OBJECT_ID.test(args.id)) return null;
         const doc = await collection.findOne({ _id: new ObjectId(args.id) });
         return doc ? toEditorPost(doc) : null;
@@ -161,7 +186,7 @@ export function editorResolvers(collection: Collection<PostDocument>) {
     },
     Mutation: {
       createPost: async (_: unknown, args: { input: PostInput }, ctx?: AppContext) => {
-        requireEditor(ctx);
+        requireWriter(ctx);
         const fields = validatePostInput(args.input, 'create');
         const doc: WithId<PostDocument> = {
           _id: new ObjectId(),
@@ -183,7 +208,7 @@ export function editorResolvers(collection: Collection<PostDocument>) {
         return toEditorPost(doc);
       },
       updatePost: async (_: unknown, args: { id: string; input: PostInput }, ctx?: AppContext) => {
-        requireEditor(ctx);
+        const writer = requireWriter(ctx);
         const _id = parseObjectId(args.id);
         const fields = validatePostInput(args.input, 'update');
         const $set: Partial<PostDocument> = {
@@ -197,9 +222,17 @@ export function editorResolvers(collection: Collection<PostDocument>) {
         const update: { $set: Partial<PostDocument>; $unset?: { coverImageUrl: '' } } = { $set };
         if (fields.coverImageUrl === null) update.$unset = { coverImageUrl: '' };
         else if (fields.coverImageUrl) $set.coverImageUrl = fields.coverImageUrl;
+        const filter: Filter<PostDocument> = writer === 'agent' ? { _id, status: 'draft' } : { _id };
         try {
-          const updated = await collection.findOneAndUpdate({ _id }, update, { returnDocument: 'after' });
-          if (!updated) throw notFound();
+          const updated = await collection.findOneAndUpdate(filter, update, { returnDocument: 'after' });
+          if (!updated) {
+            if (writer === 'agent') {
+              const existing = await collection.findOne({ _id });
+              if (!existing) throw notFound();
+              throw new GraphQLError('Agents can only update drafts', { extensions: { code: 'FORBIDDEN' } });
+            }
+            throw notFound();
+          }
           return toEditorPost(updated);
         } catch (error) {
           if (error instanceof GraphQLError) throw error;
@@ -207,7 +240,7 @@ export function editorResolvers(collection: Collection<PostDocument>) {
         }
       },
       publishPost: async (_: unknown, args: { id: string }, ctx?: AppContext) => {
-        requireEditor(ctx);
+        requireEditorOnly(ctx);
         const _id = parseObjectId(args.id);
         const existing = await collection.findOne({ _id });
         if (!existing) throw notFound();
@@ -220,7 +253,7 @@ export function editorResolvers(collection: Collection<PostDocument>) {
         return toEditorPost(updated);
       },
       unpublishPost: async (_: unknown, args: { id: string }, ctx?: AppContext) => {
-        requireEditor(ctx);
+        requireEditorOnly(ctx);
         const _id = parseObjectId(args.id);
         const updated = await collection.findOneAndUpdate(
           { _id },

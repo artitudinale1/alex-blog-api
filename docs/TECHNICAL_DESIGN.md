@@ -66,6 +66,25 @@ const token = `${data}.${signature}`;
 
 `githubUserId` is `String(session.user.id)` from the verified GitHub profile, not `profile.login`. The same `EDITOR_AUTH_SECRET` (at least 32 characters) lives on Render and on the Next.js server. `ADMIN_GITHUB_IDS` lives only on Render. The GitHub OAuth client id and secret live only on the Next.js host. None of these values are committed.
 
+### Publishing agent
+The Agentic Publishing Lab is a separate server. It authenticates with `AGENT_API_SECRET`, which is not `EDITOR_AUTH_SECRET` and must not be equal to it. A missing secret, a secret shorter than 32 characters, or a copy of the editor secret leaves agent authentication unconfigured. Agent calls then fail closed. Editor sign-in is unchanged, and public `posts` / `post` stay anonymous.
+
+The lab sends the secret only on its own server request:
+
+`X-Agent-Authorization: Bearer <AGENT_API_SECRET>`
+
+The API compares a SHA-256 digest of the header with a digest of the configured secret. It does not write the header, the secret, or the comparison into logs or GraphQL errors. A GraphQL argument cannot carry this credential. The browser must never receive the secret.
+
+A valid agent credential may:
+
+- look up articles with `posts`, `post`, `editorPosts`, and `editorPost`, including drafts
+- call `createPost`, which still inserts `status: "draft"` and `publishedAt: null`
+- call `updatePost` only while the stored article is a draft
+
+The draft rule is the MongoDB filter `{ _id, status: "draft" }` on `findOneAndUpdate`. The update does not set `status` or `publishedAt`. If the article is published, or becomes published before the update matches, the write does not happen and the API returns `FORBIDDEN`. `publishPost` and `unpublishPost` also return `FORBIDDEN` for the agent. The editor still updates published articles and can publish or unpublish; that path filters by `_id` only.
+
+Validation is the existing post-input function. A duplicate slug returns `BAD_USER_INPUT`. No header is `UNAUTHENTICATED` with `Authentication required`. A wrong bearer value is `UNAUTHENTICATED` with `Invalid agent credentials`. An unconfigured secret, when a header is present, is `UNAUTHENTICATED` with `Agent authentication is not configured`.
+
 ## Milestones / acceptance
 **1. Backend local:** repository, documentation, typed GraphQL API, MongoDB connection, seed script, tests and GitHub Actions. A query returns two demo posts from `alex_blog`.
 
