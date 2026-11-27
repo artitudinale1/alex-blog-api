@@ -54,6 +54,15 @@ describe('editor authorization', () => {
 });
 
 describe('editor mutations', () => {
+  it('trims Markdown for the human editor', async () => {
+    const insertOne = vi.fn().mockResolvedValue({ acknowledged: true });
+    const created = await editorResolvers({ insertOne } as unknown as Collection<PostDocument>).Mutation.createPost(
+      {}, { input: { ...input, contentMarkdown: '  \n本文\n  ' } }, editor,
+    );
+    expect(created.contentMarkdown).toBe('本文');
+    expect(insertOne.mock.calls[0][0].contentMarkdown).toBe('本文');
+  });
+
   it('creates a draft without trusting a browser-supplied GitHub id', async () => {
     const insertOne = vi.fn().mockResolvedValue({ acknowledged: true });
     const collection = { insertOne } as unknown as Collection<PostDocument>;

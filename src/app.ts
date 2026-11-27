@@ -3,9 +3,15 @@ import type { Collection } from 'mongodb';
 import { typeDefs } from './schema.js';
 import { postResolvers, type PostDocument } from './posts.js';
 import { editorResolvers, maskClientError } from './editor.js';
-import { resolveAuthorization, type EditorAuthConfig } from './editor-auth.js';
+import { resolveAuthorization, type AppContext, type EditorAuthConfig } from './editor-auth.js';
+import { resolveAgentAuthorization, type AgentAuthConfig } from './agent-auth.js';
 
-export function createApp(posts: Collection<PostDocument>, allowedOrigins: string[], auth: EditorAuthConfig) {
+export function createApp(
+  posts: Collection<PostDocument>,
+  allowedOrigins: string[],
+  auth: EditorAuthConfig,
+  agent: AgentAuthConfig = { secret: null },
+) {
   const editing = editorResolvers(posts);
   return createYoga({
     schema: createSchema({
@@ -19,6 +25,9 @@ export function createApp(posts: Collection<PostDocument>, allowedOrigins: strin
     cors: { origin: allowedOrigins, methods: ['GET', 'POST', 'OPTIONS'] },
     maskedErrors: { maskError: maskClientError },
     graphiql: process.env.NODE_ENV !== 'production',
-    context: ({ request }) => resolveAuthorization(request.headers.get('authorization'), auth),
+    context: ({ request }): AppContext => ({
+      ...resolveAuthorization(request.headers.get('authorization'), auth),
+      ...resolveAgentAuthorization(request.headers.get('x-agent-authorization'), agent),
+    }),
   });
 }
