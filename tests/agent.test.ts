@@ -47,6 +47,31 @@ describe('agent permissions', () => {
     expect(findOne).toHaveBeenCalledWith({ _id: draft._id });
   });
 
+  it('stores agent Markdown exactly and rejects blank or oversized content', async () => {
+    const markdown = '\n  本文\n\n';
+    const padded = `  ${markdown}  `;
+    const insertOne = vi.fn().mockResolvedValue({ acknowledged: true });
+    const id = new ObjectId();
+    const findOneAndUpdate = vi.fn().mockImplementation(async (_filter, update: { $set: Partial<PostDocument> }) => ({
+      ...draftDoc(id), contentMarkdown: update.$set.contentMarkdown,
+    }));
+    const resolvers = editorResolvers({ insertOne, findOneAndUpdate } as unknown as Collection<PostDocument>);
+    const created = await resolvers.Mutation.createPost({}, { input: { ...input, contentMarkdown: markdown } }, agent);
+    expect(created.contentMarkdown).toBe(markdown);
+    expect(insertOne.mock.calls[0][0].contentMarkdown).toBe(markdown);
+    const updated = await resolvers.Mutation.updatePost({}, { id: id.toHexString(), input: { ...input, contentMarkdown: padded } }, agent);
+    expect(updated.contentMarkdown).toBe(padded);
+    expect(findOneAndUpdate.mock.calls[0][1].$set.contentMarkdown).toBe(padded);
+    const rejectedInsert = vi.fn();
+    const rejectedUpdate = vi.fn();
+    const rejected = editorResolvers({ insertOne: rejectedInsert, findOneAndUpdate: rejectedUpdate } as unknown as Collection<PostDocument>);
+    await expect(rejected.Mutation.createPost({}, { input: { ...input, contentMarkdown: ' \n\t ' } }, agent)).rejects.toThrow(/contentMarkdown/);
+    await expect(rejected.Mutation.updatePost({}, { id: id.toHexString(), input: { ...input, contentMarkdown: '   ' } }, agent)).rejects.toThrow(/contentMarkdown/);
+    await expect(rejected.Mutation.createPost({}, { input: { ...input, contentMarkdown: `${'a'.repeat(100_000)}\n` } }, agent)).rejects.toThrow(/too long/);
+    expect(rejectedInsert).not.toHaveBeenCalled();
+    expect(rejectedUpdate).not.toHaveBeenCalled();
+  });
+
   it('creates a draft and rejects a duplicate slug', async () => {
     const insertOne = vi.fn()
       .mockResolvedValueOnce({ acknowledged: true })

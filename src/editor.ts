@@ -99,12 +99,19 @@ function requireText(value: unknown, label: string, max: number): string {
   return trimmed;
 }
 
-export function validatePostInput(input: PostInput | undefined, mode: 'create' | 'update'): ValidatedFields {
+function contentMarkdownValue(value: unknown, preserveExact: boolean): string {
+  if (!preserveExact) return requireText(value, 'contentMarkdown', 100_000);
+  if (typeof value !== 'string' || value.trim().length === 0) throw badInput('contentMarkdown is required');
+  if (value.length > 100_000) throw badInput('contentMarkdown is too long');
+  return value;
+}
+
+export function validatePostInput(input: PostInput | undefined, mode: 'create' | 'update', options?: { preserveMarkdown?: boolean }): ValidatedFields {
   const title = requireText(input?.title, 'title', 160);
   const slug = requireText(input?.slug, 'slug', 80);
   if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)) throw badInput('slug must be lowercase words separated by hyphens');
   const excerpt = requireText(input?.excerpt, 'excerpt', 300);
-  const contentMarkdown = requireText(input?.contentMarkdown, 'contentMarkdown', 100_000);
+  const contentMarkdown = contentMarkdownValue(input?.contentMarkdown, options?.preserveMarkdown === true);
   const category = input?.category;
   if (category !== 'CODE' && category !== 'JAPANESE' && category !== 'CATS' && category !== 'COOKING') {
     throw badInput('category is invalid');
@@ -186,8 +193,8 @@ export function editorResolvers(collection: Collection<PostDocument>) {
     },
     Mutation: {
       createPost: async (_: unknown, args: { input: PostInput }, ctx?: AppContext) => {
-        requireWriter(ctx);
-        const fields = validatePostInput(args.input, 'create');
+        const writer = requireWriter(ctx);
+        const fields = validatePostInput(args.input, 'create', { preserveMarkdown: writer === 'agent' });
         const doc: WithId<PostDocument> = {
           _id: new ObjectId(),
           title: fields.title,
@@ -210,7 +217,7 @@ export function editorResolvers(collection: Collection<PostDocument>) {
       updatePost: async (_: unknown, args: { id: string; input: PostInput }, ctx?: AppContext) => {
         const writer = requireWriter(ctx);
         const _id = parseObjectId(args.id);
-        const fields = validatePostInput(args.input, 'update');
+        const fields = validatePostInput(args.input, 'update', { preserveMarkdown: writer === 'agent' });
         const $set: Partial<PostDocument> = {
           title: fields.title,
           slug: fields.slug,

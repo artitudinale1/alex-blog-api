@@ -83,7 +83,7 @@ A valid agent credential may:
 
 The draft rule is the MongoDB filter `{ _id, status: "draft" }` on `findOneAndUpdate`. The update does not set `status` or `publishedAt`. If the article is published, or becomes published before the update matches, the write does not happen and the API returns `FORBIDDEN`. `publishPost` and `unpublishPost` also return `FORBIDDEN` for the agent. The editor still updates published articles and can publish or unpublish; that path filters by `_id` only.
 
-Validation is the existing post-input function. A duplicate slug returns `BAD_USER_INPUT`. No header is `UNAUTHENTICATED` with `Authentication required`. A wrong bearer value is `UNAUTHENTICATED` with `Invalid agent credentials`. An unconfigured secret, when a header is present, is `UNAUTHENTICATED` with `Agent authentication is not configured`.
+Validation uses the same post-input rules. For the agent, `contentMarkdown` is stored exactly, including leading and trailing whitespace. Empty or whitespace-only Markdown is rejected, and the 100000-character limit applies to the original string. The editor path still trims Markdown before saving. A duplicate slug returns `BAD_USER_INPUT`. No header is `UNAUTHENTICATED` with `Authentication required`. A wrong bearer value is `UNAUTHENTICATED` with `Invalid agent credentials`. An unconfigured secret, when a header is present, is `UNAUTHENTICATED` with `Agent authentication is not configured`.
 
 ## Milestones / acceptance
 **1. Backend local:** repository, documentation, typed GraphQL API, MongoDB connection, seed script, tests and GitHub Actions. A query returns two demo posts from `alex_blog`.
